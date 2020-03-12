@@ -39,6 +39,7 @@ func ExampleNewTracer() {
 		log.Fatalf("unable to create tracer: %+v\n", err)
 	}
 
+
 	// tracer can now be used to create spans.
 	span := tracer.StartSpan("some_operation")
 	time.Sleep(time.Second)
