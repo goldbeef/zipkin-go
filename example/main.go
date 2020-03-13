@@ -1,13 +1,13 @@
-package	main 
+package	main
 
 import (
 	"context"
-	"log"
-	"time"
-	zipkin "github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go"
 	"github.com/openzipkin/zipkin-go/model"
 	"github.com/openzipkin/zipkin-go/reporter"
 	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
+	"log"
+	"time"
 )
 
 func doSomeWork(context.Context) {}
@@ -43,17 +43,47 @@ func ExampleNewTracer() {
 	// tracer can now be used to create spans.
 	span := tracer.StartSpan("some_operation")
 	time.Sleep(time.Second)
+	span.Finish()
+
+	go func() {
+		ctx11 := zipkin.NewContext(context.Background(), span)
+		span11, _:= tracer.StartSpanFromContext(ctx11, "hello world")
+		time.Sleep(time.Second)
+		span11.Finish()
+	}()
 
 	ctx1 := zipkin.NewContext(context.Background(), span)
 	span1, ctx2:= tracer.StartSpanFromContext(ctx1, "some_operation1")
 	time.Sleep(time.Second)
 	span1.Finish()
 
+
+
 	span2, _:= tracer.StartSpanFromContext(ctx2, "some_operation2")
 	time.Sleep(time.Second)
 	span2.Finish()
 
-	span.Finish()
+
+	traceId, spanId := span2.Context().TraceID, span2.Context().ID
+	go func() {
+		endpoint1, err := zipkin.NewEndpoint("testService", "172.20.23.100:80")
+		if err != nil {
+			log.Fatalf("unable to create local endpoint: %+v\n", err)
+		}
+		tracer1, err := zipkin.NewTracer(
+			reporter,
+			zipkin.WithLocalEndpoint(endpoint1),
+			zipkin.WithSampler(sampler),
+		)
+		if err != nil {
+			log.Fatalf("unable to create tracer: %+v\n", err)
+		}
+		span3 := tracer1.StartSpan("some_operation3", zipkin.Parent(model.SpanContext{TraceID: traceId, ID: spanId}))
+		time.Sleep(time.Second/2)
+		span3.Finish()
+	}()
+
+	time.Sleep(time.Second)
 }
 
 func ExampleTracerOption() {
